@@ -1,0 +1,160 @@
+#!/usr/bin/env php
+<?php
+
+require_once __DIR__ . '/vendor/autoload.php';
+
+use Core\Migration;
+use Dotenv\Dotenv;
+
+// Load environment variables
+$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
+$command = $argv[1] ?? '';
+
+switch ($command) {
+    case 'migrate':
+        $migration = new Migration();
+        $migration->run();
+        echo "Migrations completed successfully!\n";
+        break;
+        
+    case 'make:controller':
+        $name = $argv[2] ?? '';
+        if (empty($name)) {
+            echo "Error: Controller name is required.\n";
+            echo "Usage: php zenith make:controller ControllerName\n";
+            exit(1);
+        }
+        makeController($name);
+        break;
+        
+    case 'make:model':
+        $name = $argv[2] ?? '';
+        if (empty($name)) {
+            echo "Error: Model name is required.\n";
+            echo "Usage: php zenith make:model ModelName\n";
+            exit(1);
+        }
+        makeModel($name);
+        break;
+        
+    case 'make:migration':
+        $name = $argv[2] ?? '';
+        if (empty($name)) {
+            echo "Error: Migration name is required.\n";
+            echo "Usage: php zenith make:migration migration_name\n";
+            exit(1);
+        }
+        makeMigration($name);
+        break;
+        
+    case 'serve':
+        $port = $argv[2] ?? '8000';
+        echo "Starting development server on http://localhost:$port\n";
+        echo "Press Ctrl+C to stop the server\n";
+        exec("php -S localhost:$port -t public");
+        break;
+        
+    default:
+        echo "ZenithPHP Framework CLI\n\n";
+        echo "Available commands:\n";
+        echo "  migrate              Run database migrations\n";
+        echo "  make:controller      Create a new controller\n";
+        echo "  make:model          Create a new model\n";
+        echo "  make:migration      Create a new migration\n";
+        echo "  serve [port]        Start development server (default port: 8000)\n";
+        break;
+}
+
+function makeController($name)
+{
+    $controllerPath = __DIR__ . "/app/Controllers/{$name}.php";
+    
+    if (file_exists($controllerPath)) {
+        echo "Error: Controller {$name} already exists.\n";
+        return;
+    }
+    
+    $template = "<?php
+
+namespace App\Controllers;
+
+class {$name} extends BaseController
+{
+    public function index()
+    {
+        \$this->view('index', [
+            'title' => '{$name}'
+        ]);
+    }
+}
+";
+    
+    file_put_contents($controllerPath, $template);
+    echo "Controller {$name} created successfully!\n";
+}
+
+function makeModel($name)
+{
+    $modelPath = __DIR__ . "/app/Models/{$name}.php";
+    
+    if (file_exists($modelPath)) {
+        echo "Error: Model {$name} already exists.\n";
+        return;
+    }
+    
+    $tableName = strtolower($name) . 's';
+    
+    $template = "<?php
+
+namespace App\Models;
+
+class {$name} extends BaseModel
+{
+    protected static string \$table = '{$tableName}';
+}
+";
+    
+    file_put_contents($modelPath, $template);
+    echo "Model {$name} created successfully!\n";
+}
+
+function makeMigration($name)
+{
+    $timestamp = date('Y_m_d_His');
+    $fileName = "{$timestamp}_{$name}.php";
+    $migrationPath = __DIR__ . "/database/migrations/{$fileName}";
+    
+    $className = str_replace(' ', '', ucwords(str_replace('_', ' ', $name)));
+    
+    $template = "<?php
+
+use Core\Database;
+
+class {$className}
+{
+    public function up()
+    {
+        \$db = Database::getInstance();
+        
+        // Add your migration logic here
+        \$sql = \"CREATE TABLE example (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )\";
+        
+        \$db->query(\$sql);
+    }
+
+    public function down()
+    {
+        \$db = Database::getInstance();
+        \$db->query(\"DROP TABLE example\");
+    }
+}
+";
+    
+    file_put_contents($migrationPath, $template);
+    echo "Migration {$fileName} created successfully!\n";
+}
